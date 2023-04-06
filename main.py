@@ -17,7 +17,9 @@ n = 10 # calculate the average loss every 5 iterations
 num_iterations = 0 # counter for the number of iterations
 
 # load data from csv file
-df = pd.read_csv('jp_stats.csv')
+df = pd.read_csv('fw_stats.csv')
+
+full_db = df
 
 df['PTS'] = pd.to_numeric(df['PTS'], errors='coerce')
 
@@ -29,6 +31,11 @@ train_targets = []
 for i in range(10, len(df)):
     # get the 10 previous values as the input
     input_vals = df.iloc[i-10:i, df.columns.get_loc('PTS')].values
+
+    home = 1
+    if full_db.iloc[i]['Home/Away'] == '@':
+        home = 0
+    input_vals = np.append(input_vals, home)
     train_inputs.append(input_vals)
     # get the current value as the target
 
@@ -48,7 +55,10 @@ print(train_targets)
 class MyModel(nn.Module):
     def __init__(self):
         super(MyModel, self).__init__()
-        self.fc1 = nn.Linear(10, 15)
+        # input parameters equal to
+        # --> last 10 games pts performance (10 nodes)
+        # --> home or away (1 node)
+        self.fc1 = nn.Linear(11, 15)
         self.fc2 = nn.Linear(15, 30)
         self.fc3 = nn.Linear(30, 15)
         self.fc4 = nn.Linear(15, 1)
@@ -56,13 +66,20 @@ class MyModel(nn.Module):
 
         self.fc1.reset_parameters()
         self.fc2.reset_parameters()
+        self.fc3.reset_parameters()
+        self.fc4.reset_parameters()
+
+        # ^ use if you want to reset the weights
 
     def forward(self, x):
         x = self.fc1(x)
         x = self.relu(x)
         x = self.fc2(x)
+        x = self.relu(x)
+        x = self.fc3(x)
+        x = self.relu(x)
+        x = self.fc4(x)
         return x
-
 # Define the dataset
 class MyDataset(Dataset):
     def __init__(self, data, targets):
@@ -142,10 +159,9 @@ plt.xlabel('Iteration / 5')
 plt.ylabel('Loss')
 plt.show()
 
-# make a prediction on upcoming game
+# make a prediction on the next game which is toady
 model.eval()
-# new_data = [19, 12, 21,  5, 16, 33, 27, 21, 27, 17]
-new_data = [12, 21,  5, 16, 33, 27, 21, 27, 17, 30]
+new_data = [16, 20, 21, 20, 16, 19, 25, 20, 16, 17,  1]
 new_data_tensor = torch.tensor(new_data, dtype=torch.float32)
 
 with torch.no_grad():
